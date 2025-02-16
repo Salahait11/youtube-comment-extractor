@@ -326,7 +326,7 @@
         <p data-i18n="developedBy">Développé avec ❤️ par <a href="#">SALAH AIT HAMMOU</a></p>
     </footer>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
@@ -356,7 +356,8 @@
                 channelIdLabel: "Identifiant de la chaîne (ID, Nom, Lien):",
                 playlistIdLabel: "ID de la playlist:",
                 genericError: "Une erreur s'est produite.",
-                searchingChannel: "Recherche de l'ID de la chaîne..."
+                searchingChannel: "Recherche de l'ID de la chaîne...",
+                noResultsFound: "Aucun résultat trouvé."
             },
             en: {
                 title: "YouTube Comment & Info Extractor",
@@ -382,12 +383,12 @@
                 channelIdLabel: "Channel Identifier (ID, Name, Link):",
                 playlistIdLabel: "Playlist ID:",
                 genericError: "An error occurred.",
-                searchingChannel: "Searching for Channel ID..."
+                searchingChannel: "Searching for Channel ID...",
+                noResultsFound: "No results found."
             }
         };
 
         let currentLanguage = 'fr';
-        const apiKey = "AIzaSyC6T-kCIWBVeYScw6PbfcC9kW0WLCxcpS0"; // Remplacez par votre véritable clé API
 
         function changeLanguage(lang) {
             currentLanguage = lang;
@@ -408,352 +409,376 @@
             document.getElementById('channelStatsIdentifier').placeholder = translations[currentLanguage]['channelIdLabel'];
             document.getElementById('playlistChannelIdentifier').placeholder = translations[currentLanguage]['channelIdLabel'];
             document.getElementById('playlistId').placeholder = translations[currentLanguage]['playlistIdLabel'];
+}
+    function openSection(sectionId) {
+        const sections = document.querySelectorAll('.section');
+        sections.forEach(section => {
+            section.style.display = 'none';
+        });
+        document.getElementById(sectionId).style.display = 'block';
+    }
+
+    // Fonctions utilitaires (utilisées par toutes les sections)
+    function extractVideoId(url) {
+        const match = url.match(/v=([a-zA-Z0-9_-]+)/);
+        return match ? match[1] : null;
+    }
+
+    async function getChannelId(identifier) {
+        if (identifier.startsWith("https://www.youtube.com/channel/")) {
+            const parts = identifier.split("/");
+            return parts[4];
         }
 
-        function openSection(sectionId) {
-            const sections = document.querySelectorAll('.section');
-            sections.forEach(section => {
-                section.style.display = 'none';
+        document.getElementById("extractCommentsProgress").innerText = translations[currentLanguage]['searchingChannel'] || "Recherche de l'ID de la chaîne..."; // Using the extractCommentsProgress to show channelId search
+
+        try {
+            const response = await $.ajax({
+                url: 'backend.php',
+                method: 'POST',
+                data: {
+                    action: 'getChannelId',
+                    identifier: identifier
+                },
+                dataType: 'json'
             });
-            document.getElementById(sectionId).style.display = 'block';
-        }
 
-        // Fonctions utilitaires (utilisées par toutes les sections)
-        function extractVideoId(url) {
-            const match = url.match(/v=([a-zA-Z0-9_-]+)/);
-            return match ? match[1] : null;
-        }
-
-        async function getChannelId(identifier) {
-            if (identifier.startsWith("https://www.youtube.com/channel/")) {
-                const parts = identifier.split("/");
-                return parts[4];
-            }
-
-            document.getElementById("progress").innerText = translations[currentLanguage]['searchingChannel'] || "Recherche de l'ID de la chaîne...";
-
-            const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${identifier}&type=channel&key=${apiKey}`;
-            try {
-                const response = await fetch(searchUrl);
-                const data = await response.json();
-
-                if (data.items && data.items.length > 0) {
-                    return data.items[0].id.channelId;
-                } else {
-                    return null;
-                }
-            } catch (error) {
-                console.error("Error searching for channel:", error);
+            if (response.channelId) {
+                return response.channelId;
+            } else {
+                console.error("Channel ID not found:", response.error);
+                alert(response.error || translations[currentLanguage]['noResultsFound']);
                 return null;
-            } finally {
-                document.getElementById("progress").innerText = "";
             }
+        } catch (error) {
+            console.error("Error searching for channel:", error);
+            alert(translations[currentLanguage]['genericError'] || "Une erreur s'est produite.");
+            return null;
+        } finally {
+            document.getElementById("extractCommentsProgress").innerText = "";
         }
+    }
 
-        function displaySearchResults(results, targetElementId) {
-            const targetElement = document.getElementById(targetElementId);
-            targetElement.innerHTML = "";
 
-            if (results && results.length > 0) {
-                const ul = document.createElement("ul");
-                results.forEach(item => {
-                    const li = document.createElement("li");
-                    li.innerHTML = `
-                        <b>${item.snippet.title}</b><br>
-                        <img src="${item.snippet.thumbnails.default.url}" alt="Thumbnail"><br>
-                        ${item.snippet.description}
-                    `;
-                    ul.appendChild(li);
-                });
-                targetElement.appendChild(ul);
-            } else {
-                targetElement.innerText = translations[currentLanguage]['noResultsFound'] || "Aucun résultat trouvé.";
-            }
-        }
+    function displaySearchResults(results, targetElementId) {
+        const targetElement = document.getElementById(targetElementId);
+        targetElement.innerHTML = "";
 
-        function displayVideoInfoHtml(videoData) {
-            if (videoData) {
-                const snippet = videoData.snippet;
-                const statistics = videoData.statistics;
-
-                const title = snippet.title;
-                const description = snippet.description;
-                const viewCount = statistics.viewCount;
-                const likeCount = statistics.likeCount;
-                const dislikeCount = statistics.dislikeCount || "N/A";
-                const commentCount = statistics.commentCount;
-
-                return `
-                    <b>Titre:</b> ${title}<br><br>
-                    <b>Description:</b> ${description}<br><br>
-                    <b>Nombre de vues:</b> ${viewCount}<br><br>
-                    <b>Nombre de likes:</b> ${likeCount}<br><br>
-                    <b>Nombre de dislikes:</b> ${dislikeCount}<br><br>
-                    <b>Nombre de commentaires:</b> ${commentCount}
+        if (results && results.length > 0) {
+            const ul = document.createElement("ul");
+            results.forEach(item => {
+                const li = document.createElement("li");
+                li.innerHTML = `
+                    <b>${item.snippet.title}</b><br>
+                    <img src="${item.snippet.thumbnails.default.url}" alt="Thumbnail"><br>
+                    ${item.snippet.description}
                 `;
-            } else {
-                return translations[currentLanguage]['noVideoInfo'] || "Aucune information sur la vidéo trouvée.";
-            }
+                ul.appendChild(li);
+            });
+            targetElement.appendChild(ul);
+        } else {
+            targetElement.innerText = translations[currentLanguage]['noResultsFound'] || "Aucun résultat trouvé.";
+        }
+    }
+
+    function displayVideoInfoHtml(videoData) {
+        if (videoData) {
+            const snippet = videoData.snippet;
+            const statistics = videoData.statistics;
+
+            const title = snippet.title;
+            const description = snippet.description;
+            const viewCount = statistics.viewCount;
+            const likeCount = statistics.likeCount;
+            const dislikeCount = statistics.dislikeCount || "N/A";
+            const commentCount = statistics.commentCount;
+
+            return `
+                <b>Titre:</b> ${title}<br><br>
+                <b>Description:</b> ${description}<br><br>
+                <b>Nombre de vues:</b> ${viewCount}<br><br>
+                <b>Nombre de likes:</b> ${likeCount}<br><br>
+                <b>Nombre de dislikes:</b> ${dislikeCount}<br><br>
+                <b>Nombre de commentaires:</b> ${commentCount}
+            `;
+        } else {
+            return translations[currentLanguage]['noVideoInfo'] || "Aucune information sur la vidéo trouvée.";
+        }
+    }
+
+    // Fonctions spécifiques à chaque section
+    async function extractCommentsFunc() {
+        const url = document.getElementById("extractCommentsUrl").value;
+        const includeUsername = document.getElementById("includeUsernameComments").checked;
+        const includeTimestamp = document.getElementById("includeTimestampComments").checked;
+        const videoId = extractVideoId(url);
+
+        if (!videoId) {
+            alert(translations[currentLanguage]['urlInvalid'] || "URL invalide ! Veuillez entrer une URL YouTube valide.");
+            return;
         }
 
-        // Fonctions spécifiques à chaque section
-        async function extractCommentsFunc() {
-            const url = document.getElementById("extractCommentsUrl").value;
-            const includeUsername = document.getElementById("includeUsernameComments").checked;
-            const includeTimestamp = document.getElementById("includeTimestampComments").checked;
-            const videoId = extractVideoId(url);
+        document.getElementById("extractCommentsProgress").innerText = translations[currentLanguage]['extracting'] || "⏳ Extraction en cours...";
+        try {
+            const response = await $.ajax({
+                url: 'backend.php',
+                method: 'POST',
+                data: {
+                    action: 'extractComments',
+                    videoId: videoId,
+                    includeUsername: includeUsername,
+                    includeTimestamp: includeTimestamp
+                },
+                dataType: 'json'
+            });
 
-            if (!videoId) {
-                alert(translations[currentLanguage]['urlInvalid'] || "URL invalide ! Veuillez entrer une URL YouTube valide.");
-                return;
+
+            if (response.error) {
+                throw new Error(response.error);
             }
 
-            document.getElementById("extractCommentsProgress").innerText = translations[currentLanguage]['extracting'] || "⏳ Extraction en cours...";
-            try {
-                const commentsData = await fetchComments(videoId, includeUsername, includeTimestamp);
-                document.getElementById("comments").innerHTML = commentsData.comments.length ? commentsData.comments.join('<br><br>') : (translations[currentLanguage]['noComments'] || "Aucun commentaire trouvé.");
-                displayDownloadLinks(commentsData.comments, includeUsername, includeTimestamp, videoId);
-            } catch (error) {
-                console.error("Error fetching comments:", error);
-                document.getElementById("comments").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite lors de l'extraction des commentaires.";
-                document.getElementById("extractCommentsDownloadLinks").innerHTML = "";
-            } finally {
-                document.getElementById("extractCommentsProgress").innerText = "";
-            }
+            document.getElementById("comments").innerHTML = response.comments.length ? response.comments.join('<br><br>') : (translations[currentLanguage]['noComments'] || "Aucun commentaire trouvé.");
+            displayDownloadLinks(response.comments, includeUsername, includeTimestamp, videoId);
+        } catch (error) {
+            console.error("Error fetching comments:", error);
+            document.getElementById("comments").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite lors de l'extraction des commentaires.";
+            document.getElementById("extractCommentsDownloadLinks").innerHTML = "";
+            alert(translations[currentLanguage]['genericError'] || "Une erreur s'est produite.");
+        } finally {
+            document.getElementById("extractCommentsProgress").innerText = "";
+        }
+    }
+
+    async function getVideoInfoFunc() {
+        const url = document.getElementById("getVideoInfoUrl").value;
+        const videoId = extractVideoId(url);
+
+        if (!videoId) {
+            alert(translations[currentLanguage]['urlInvalid'] || "URL invalide ! Veuillez entrer une URL YouTube valide.");
+            return;
         }
 
-        async function getVideoInfoFunc() {
-            const url = document.getElementById("getVideoInfoUrl").value;
-            const videoId = extractVideoId(url);
+        try {
+            const response = await $.ajax({
+                url: 'backend.php',
+                method: 'POST',
+                data: {
+                    action: 'getVideoInfo',
+                    videoId: videoId
+                },
+                dataType: 'json'
+            });
 
-            if (!videoId) {
-                alert(translations[currentLanguage]['urlInvalid'] || "URL invalide ! Veuillez entrer une URL YouTube valide.");
-                return;
+            if (response.error) {
+                throw new Error(response.error);
             }
 
-            try {
-                const videoData = await fetchVideoInfo(videoId);
-                document.getElementById("videoInfo").innerHTML = displayVideoInfoHtml(videoData);
-            } catch (error) {
-                console.error("Error fetching video info:", error);
-                document.getElementById("videoInfo").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
+            document.getElementById("videoInfo").innerHTML = displayVideoInfoHtml(response);
+
+        } catch (error) {
+            console.error("Error fetching video info:", error);
+            document.getElementById("videoInfo").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
+            alert(translations[currentLanguage]['genericError'] || "Une erreur s'est produite.");
+        }
+    }
+
+    async function searchVideosFunc() {
+        const keyword = document.getElementById("searchVideosKeyword").value;
+
+        try {
+            const response = await $.ajax({
+                url: 'backend.php',
+                method: 'POST',
+                data: {
+                    action: 'searchVideos',
+                    keyword: keyword
+                },
+                dataType: 'json'
+            });
+
+            if (response.error) {
+                throw new Error(response.error);
             }
+
+            displaySearchResults(response, "searchVideosResults");
+
+        } catch (error) {
+            console.error("Error searching videos:", error);
+            document.getElementById("searchVideosResults").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
+            alert(translations[currentLanguage]['genericError'] || "Une erreur s'est produite.");
+        }
+    }
+
+    async function channelVideosFunc() {
+        const channelIdentifier = document.getElementById("channelVideosIdentifier").value;
+        let channelId = await getChannelId(channelIdentifier);
+
+        if (!channelId) {
+            document.getElementById("channelVideosResults").innerText = translations[currentLanguage]['noResultsFound'] || "Aucun résultat trouvé.";
+            return;
         }
 
-        async function searchVideosFunc() {
-            const keyword = document.getElementById("searchVideosKeyword").value;
-            const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${keyword}&maxResults=10&type=video&key=${apiKey}`;
+        try {
+            const response = await $.ajax({
+                url: 'backend.php',
+                method: 'POST',
+                data: {
+                    action: 'channelVideos',
+                    channelId: channelId
+                },
+                dataType: 'json'
+            });
 
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                displaySearchResults(data.items, "searchVideosResults");
-            } catch (error) {
-                console.error("Error searching videos:", error);
-                document.getElementById("searchVideosResults").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
+            if (response.error) {
+                throw new Error(response.error);
             }
+            displaySearchResults(response, "channelVideosResults");
+        } catch (error) {
+            console.error("Error listing channel videos:", error);
+            document.getElementById("channelVideosResults").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
+            alert(translations[currentLanguage]['genericError'] || "Une erreur s'est produite.");
+        }
+    }
+
+    async function channelStatsFunc() {
+        const channelIdentifier = document.getElementById("channelStatsIdentifier").value;
+        let channelId = await getChannelId(channelIdentifier);
+
+        if (!channelId) {
+            document.getElementById("channelStatsResults").innerText = translations[currentLanguage]['noResultsFound'] || "Aucun résultat trouvé.";
+            return;
         }
 
-        async function channelVideosFunc() {
-            const channelIdentifier = document.getElementById("channelVideosIdentifier").value;
-            let channelId = await getChannelId(channelIdentifier);
+        try {
+            const response = await $.ajax({
+                url: 'backend.php',
+                method: 'POST',
+                data: {
+                    action: 'channelStats',
+                    channelId: channelId
+                },
+                dataType: 'json'
+            });
 
-            if (!channelId) {
-                document.getElementById("channelVideosResults").innerText = translations[currentLanguage]['noResultsFound'] || "Aucun résultat trouvé.";
-                return;
+            if (response.error) {
+                throw new Error(response.error);
             }
 
-            const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=10&order=date&type=video&key=${apiKey}`;
+            const stats = response;
+            const statsHTML = `
+                <b>Abonnés:</b> ${stats.subscriberCount}<br>
+                <b>Vues Totales:</b> ${stats.viewCount}<br>
+                <b>Nombre de Vidéos:</b> ${stats.videoCount}
+            `;
+            document.getElementById("channelStatsResults").innerHTML = statsHTML;
 
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                displaySearchResults(data.items, "channelVideosResults");
-            } catch (error) {
-                console.error("Error listing channel videos:", error);
-                document.getElementById("channelVideosResults").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
-            }
+        } catch (error) {
+            console.error("Error getting channel stats:", error);
+            document.getElementById("channelStatsResults").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
+            alert(translations[currentLanguage]['genericError'] || "Une erreur s'est produite.");
+        }
+    }
+
+    async function channelPlaylistsFunc() {
+        const channelIdentifier = document.getElementById("playlistChannelIdentifier").value;
+        let channelId = await getChannelId(channelIdentifier);
+
+        if (!channelId) {
+            document.getElementById("channelPlaylistsResults").innerText = translations[currentLanguage]['noResultsFound'] || "Aucun résultat trouvé.";
+            return;
         }
 
-        async function channelStatsFunc() {
-            const channelIdentifier = document.getElementById("channelStatsIdentifier").value;
-            let channelId = await getChannelId(channelIdentifier);
+        try {
+            const response = await $.ajax({
+                url: 'backend.php',
+                method: 'POST',
+                data: {
+                    action: 'channelPlaylists',
+                    channelId: channelId
+                },
+                dataType: 'json'
+            });
 
-            if (!channelId) {
-                document.getElementById("channelStatsResults").innerText = translations[currentLanguage]['noResultsFound'] || "Aucun résultat trouvé.";
-                return;
+            if (response.error) {
+                throw new Error(response.error);
             }
-
-            const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${apiKey}`;
-
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if (data.items && data.items.length > 0) {
-                    const stats = data.items[0].statistics;
-                    const statsHTML = `
-                        <b>Abonnés:</b> ${stats.subscriberCount}<br>
-                        <b>Vues Totales:</b> ${stats.viewCount}<br>
-                        <b>Nombre de Vidéos:</b> ${stats.videoCount}
-                    `;
-                    document.getElementById("channelStatsResults").innerHTML = statsHTML;
-                } else {
-                    document.getElementById("channelStatsResults").innerText = translations[currentLanguage]['noResultsFound'] || "Aucun résultat trouvé.";
-                }
-            } catch (error) {
-                console.error("Error getting channel stats:", error);
-                document.getElementById("channelStatsResults").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
-            }
+            displaySearchResults(response, "channelPlaylistsResults");
+        } catch (error) {
+            console.error("Error listing channel playlists:", error);
+            document.getElementById("channelPlaylistsResults").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
+            alert(translations[currentLanguage]['genericError'] || "Une erreur s'est produite.");
         }
+    }
 
-        async function channelPlaylistsFunc() {
-            const channelIdentifier = document.getElementById("playlistChannelIdentifier").value;
-            let channelId = await getChannelId(channelIdentifier);
+    async function playlistVideosFunc() {
+        const playlistId = document.getElementById("playlistId").value;
 
-            if (!channelId) {
-                document.getElementById("channelPlaylistsResults").innerText = translations[currentLanguage]['noResultsFound'] || "Aucun résultat trouvé.";
-                return;
+        try {
+            const response = await $.ajax({
+                url: 'backend.php',
+                method: 'POST',
+                data: {
+                    action: 'playlistVideos',
+                    playlistId: playlistId
+                },
+                dataType: 'json'
+            });
+
+            if (response.error) {
+                throw new Error(response.error);
             }
+            displaySearchResults(response, "playlistVideosResults");
 
-            const url = `https://www.googleapis.com/youtube/v3/playlists?part=snippet&channelId=${channelId}&maxResults=10&key=${apiKey}`;
-
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                displaySearchResults(data.items, "channelPlaylistsResults"); // Affiche les résultats comme la recherche de vidéos
-            } catch (error) {
-                console.error("Error listing channel playlists:", error);
-                document.getElementById("channelPlaylistsResults").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
-            }
+        } catch (error) {
+            console.error("Error getting playlist videos:", error);
+            document.getElementById("playlistVideosResults").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
+            alert(translations[currentLanguage]['genericError'] || "Une erreur s'est produite.");
         }
+    }
 
-        async function playlistVideosFunc() {
-            const playlistId = document.getElementById("playlistId").value;
-            const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=10&key=${apiKey}`;
+    function displayDownloadLinks(comments, includeUsername, includeTimestamp, videoId) {
+        const downloadLinksDiv = document.getElementById("extractCommentsDownloadLinks");
+        downloadLinksDiv.innerHTML = "";
 
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                displaySearchResults(data.items, "playlistVideosResults");
-            } catch (error) {
-                console.error("Error getting playlist videos:", error);
-                document.getElementById("playlistVideosResults").innerText = translations[currentLanguage]['genericError'] || "Une erreur s'est produite.";
-            }
+        if (comments.length > 0) {
+            const textContent = comments.join('\r\n\r\n');
+            const jsonContent = JSON.stringify(comments, null, 2);
+
+            const textBlob = new Blob([textContent], {
+                type: 'text/plain'
+            });
+            const jsonBlob = new Blob([jsonContent], {
+                type: 'application/json'
+            });
+
+            const textUrl = URL.createObjectURL(textBlob);
+            const jsonUrl = URL.createObjectURL(jsonBlob);
+
+            const textLink = document.createElement('a');
+            textLink.href = textUrl;
+            textLink.download = `comments_${videoId}${includeUsername ? '_with_names' : ''}${includeTimestamp ? '_with_time' : ''}.txt`;
+            textLink.textContent = translations[currentLanguage]['downloadText'] || 'Télécharger en TXT';
+            textLink.classList.add('btn', 'btn-success');
+            textLink.style.marginLeft = '5px';
+
+            const jsonLink = document.createElement('a');
+            jsonLink.href = jsonUrl;
+            jsonLink.download = `comments_${videoId}${includeUsername ? '_with_names' : ''}${includeTimestamp ? '_with_time' : ''}.json`;
+            jsonLink.textContent = translations[currentLanguage]['downloadJson'] || 'Télécharger en JSON';
+            jsonLink.classList.add('btn', 'btn-info');
+            textLink.style.marginLeft = '5px';
+            downloadLinksDiv.appendChild(textLink);
+            downloadLinksDiv.appendChild(jsonLink);
+
+
+        } else {
+            downloadLinksDiv.innerHTML = "<p data-i18n='noComments'>Aucun commentaire trouvé.</p>";
         }
-
-        async function fetchComments(videoId, includeUsername, includeTimestamp) {
-           let nextPageToken = '';
-           let allComments = [];
-
-           try {
-               while (true) {
-                   let url = `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&maxResults=100&key=${apiKey}`;
-
-                   if (nextPageToken) {
-                       url += `&pageToken=${nextPageToken}`;
-                   }
-
-                   const response = await fetch(url);
-                   if (!response.ok) {
-                       throw new Error(`HTTP error! status: ${response.status}`);
-                   }
-
-                   const data = await response.json();
-                   if (!data.items) {
-                       break;
-                   }
-                   data.items.forEach(item => {
-                       const snippet = item.snippet.topLevelComment.snippet;
-                       const commentText = snippet.textDisplay;
-                       const authorName = snippet.authorDisplayName;
-                       const publishedAt = snippet.publishedAt;
-                       let commentString = commentText;
-
-                       if (includeUsername) {
-                           commentString = `${authorName}: ${commentString}`;
-                       }
-                       if (includeTimestamp) {
-                           const date = new Date(publishedAt);
-                           const formattedDate = date.toLocaleString();
-                           commentString = `[${formattedDate}] ${commentString}`;
-                       }
-
-                       allComments.push(commentString);
-                   });
-
-                   if (!data.nextPageToken) {
-                       break;
-                   }
-                   nextPageToken = data.nextPageToken;
-               }
-           } catch (error) {
-               console.error("Error fetching comments:", error);
-               throw error;
-           }
-
-           return {
-               comments: allComments,
-               includeUsername: includeUsername
-           };
-       }
-
-        async function fetchVideoInfo(videoId) {
-           const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoId}&key=${apiKey}`;
-           const response = await fetch(url);
-           const data = await response.json();
-
-           if (data.items && data.items.length > 0) {
-               return data.items[0];
-           } else {
-               return null;
-           }
-       }
-
-        function displayDownloadLinks(comments, includeUsername, includeTimestamp, videoId) {
-           const downloadLinksDiv = document.getElementById("extractCommentsDownloadLinks");
-           downloadLinksDiv.innerHTML = "";
-
-           if (comments.length > 0) {
-               const textContent = comments.join('\r\n\r\n');
-               const jsonContent = JSON.stringify(comments, null, 2);
-
-               const textBlob = new Blob([textContent], {
-                   type: 'text/plain'
-               });
-               const jsonBlob = new Blob([jsonContent], {
-                   type: 'application/json'
-               });
-
-               const textUrl = URL.createObjectURL(textBlob);
-               const jsonUrl = URL.createObjectURL(jsonBlob);
-
-               const textLink = document.createElement('a');
-               textLink.href = textUrl;
-               textLink.download = `comments_${videoId}${includeUsername ? '_with_names' : ''}${includeTimestamp ? '_with_time' : ''}.txt`;
-               textLink.textContent = translations[currentLanguage]['downloadText'] || 'Télécharger en TXT';
-               textLink.classList.add('btn', 'btn-success');
-               textLink.style.marginLeft = '5px';
-
-               const jsonLink = document.createElement('a');
-               jsonLink.href = jsonUrl;
-               jsonLink.download = `comments_${videoId}${includeUsername ? '_with_names' : ''}${includeTimestamp ? '_with_time' : ''}.json`;
-               jsonLink.textContent = translations[currentLanguage]['downloadJson'] || 'Télécharger en JSON';
-               jsonLink.classList.add('btn', 'btn-info');
-               textLink.style.marginLeft = '5px';
-               downloadLinksDiv.appendChild(textLink);
-               downloadLinksDiv.appendChild(jsonLink);
+    }
 
 
-           } else {
-               downloadLinksDiv.innerHTML = "<p data-i18n='noComments'>Aucun commentaire trouvé.</p>";
-           }
-       }
-
-        // Initialisation
-        updateContent();
-    </script>
-
+    // Initialisation
+    updateContent();
+</script>
 </body>
-
 </html>
