@@ -356,7 +356,8 @@
                 channelIdLabel: "Identifiant de la chaîne (ID, Nom, Lien):",
                 playlistIdLabel: "ID de la playlist:",
                 genericError: "Une erreur s'est produite.",
-                searchingChannel: "Recherche de l'ID de la chaîne..."
+                searchingChannel: "Recherche de l'ID de la chaîne...",
+                noResultsFound: "Aucun résultat trouvé."
             },
             en: {
                 title: "YouTube Comment & Info Extractor",
@@ -382,7 +383,8 @@
                 channelIdLabel: "Channel Identifier (ID, Name, Link):",
                 playlistIdLabel: "Playlist ID:",
                 genericError: "An error occurred.",
-                searchingChannel: "Searching for Channel ID..."
+                searchingChannel: "Searching for Channel ID...",
+                noResultsFound: "No results found."
             }
         };
 
@@ -420,9 +422,23 @@
 
         // Fonctions utilitaires (utilisées par toutes les sections)
         function extractVideoId(url) {
-            const match = url.match(/v=([a-zA-Z0-9_-]+)/);
-            return match ? match[1] : null;
+            let videoId = null;
+
+            // Check for standard YouTube URL
+            let match = url.match(/v=([a-zA-Z0-9_-]+)/);
+            if (match) {
+                videoId = match[1];
+            } else {
+                // Check for shortened YouTube URL (youtu.be)
+                match = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+                if (match) {
+                    videoId = match[1];
+                }
+            }
+
+            return videoId;
         }
+
 
         async function getChannelId(identifier) {
             if (identifier.startsWith("https://www.youtube.com/channel/")) {
@@ -642,7 +658,7 @@
             }
         }
 
-        async function fetchComments(videoId, includeUsername, includeTimestamp) {
+       async function fetchComments(videoId, includeUsername, includeTimestamp) {
            let nextPageToken = '';
            let allComments = [];
 
@@ -716,18 +732,15 @@
 
            if (comments.length > 0) {
                const textContent = comments.join('\r\n\r\n');
+
+               // Create Blob for TXT download
+               const textBlob = new Blob([textContent], { type: 'text/plain' });
+               const textUrl = URL.createObjectURL(textBlob); // Generate a download link
+
+                //Create Blob for JSON download
                const jsonContent = JSON.stringify(comments, null, 2);
-
-               const textBlob = new Blob([textContent], {
-                   type: 'text/plain'
-               });
-               const jsonBlob = new Blob([jsonContent], {
-                   type: 'application/json'
-               });
-
-               const textUrl = URL.createObjectURL(textBlob);
+               const jsonBlob = new Blob([jsonContent], { type: 'application/json' });
                const jsonUrl = URL.createObjectURL(jsonBlob);
-
                const textLink = document.createElement('a');
                textLink.href = textUrl;
                textLink.download = `comments_${videoId}${includeUsername ? '_with_names' : ''}${includeTimestamp ? '_with_time' : ''}.txt`;
@@ -741,15 +754,13 @@
                jsonLink.textContent = translations[currentLanguage]['downloadJson'] || 'Télécharger en JSON';
                jsonLink.classList.add('btn', 'btn-info');
                textLink.style.marginLeft = '5px';
-               downloadLinksDiv.appendChild(textLink);
-               downloadLinksDiv.appendChild(jsonLink);
 
-
-           } else {
+                downloadLinksDiv.appendChild(textLink);
+                downloadLinksDiv.appendChild(jsonLink);
+            } else {
                downloadLinksDiv.innerHTML = "<p data-i18n='noComments'>Aucun commentaire trouvé.</p>";
            }
        }
-
         // Initialisation
         updateContent();
     </script>
