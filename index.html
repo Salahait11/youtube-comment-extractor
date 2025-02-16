@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Comment Extractor & Video Info</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+            color: #343a40;
+            text-align: left;
+        }
+
+        .container {
+            max-width: 95%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 20px;
+            animation: fadeInDown 1s;
+        }
+
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .form-control {
+            margin-bottom: 15px;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+
+        /* Flex container for comments and video info */
+        .content-wrapper {
+            display: flex;
+            flex-wrap: wrap;  /* Allow items to wrap to the next line if needed */
+            gap: 20px;       /* Space between the items */
+        }
+
+        #comments,
+        #videoInfo {
+            flex: 1;            /* Each takes up equal space */
+            min-width: 300px;    /* Minimum width for smaller screens */
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            white-space: pre-line;
+            text-align: left;
+        }
+
+        #downloadLinks {
+            margin-top: 20px;
+        }
+
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #6c757d;
+        }
+
+        footer a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        .language-buttons {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .language-buttons button {
+            margin: 0 5px;
+            border-radius: 5px;
+        }
+
+        .form-check {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .form-check-label {
+            margin-left: 0;
+            margin-right: 0.5em;
+        }
+
+        #includeUsername,
+        #includeTimestamp {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1 class="animate__animated animate__fadeInDown">🔹 <span data-i18n="title">Extracteur de Commentaires &
+                Infos YouTube</span></h1>
+
+        <div class="form-group">
+            <label for="url">🔗 <span data-i18n="urlLabel">Entrez l'URL de la vidéo YouTube :</span></label>
+            <input type="text" id="url" class="form-control" placeholder="URL de la vidéo YouTube" size="50">
+        </div>
+
+        <div class="form-group">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="includeUsername">
+                <label class="form-check-label" for="includeUsername"><span data-i18n="includeUsername">Inclure le
+                        nom d'utilisateur ?</span></label>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="includeTimestamp">
+                <label class="form-check-label" for="includeTimestamp"><span data-i18n="includeTimestamp">Inclure
+                        l'horodatage ?</span></label>
+            </div>
+        </div>
+
+        <div class="language-buttons">
+            <button onclick="changeLanguage('fr')" class="btn btn-secondary">Français</button>
+            <button onclick="changeLanguage('en')" class="btn btn-secondary">English</button>
+        </div>
+
+        <button onclick="extractComments()" class="btn btn-primary"><i class="fas fa-comment"></i> <span
+                data-i18n="extractButton">Extraire les Commentaires</span></button>
+        <button onclick="getVideoInfo()" class="btn btn-info"><i class="fas fa-info-circle"></i> <span
+                data-i18n="videoInfoButton">Obtenir les Infos de la Vidéo</span></button>
+
+
+        <div id="downloadLinks" class="mt-3"></div>
+        <div id="progress"></div>
+
+        <div class="content-wrapper">
+            <div id="comments" class="mt-3"></div>
+            <div id="videoInfo" class="mt-3"></div>
+        </div>
+
+
+    </div>
+
+    <footer class="mt-5 text-center">
+        <p data-i18n="developedBy">Développé avec ❤️ par <a href="#">SALAH AIT HAMMOU</a></p>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        const translations = {
+            fr: {
+                title: "Extracteur de Commentaires & Infos YouTube",
+                urlLabel: "Entrez l'URL de la vidéo YouTube :",
+                extractButton: "Extraire les Commentaires",
+                videoInfoButton: "Obtenir les Infos de la Vidéo",
+                includeUsername: "Inclure le nom d'utilisateur ?",
+                includeTimestamp: "Inclure l'horodatage",
+                noComments: "Aucun commentaire trouvé.",
+                noVideoInfo: "Aucune information sur la vidéo trouvée.",
+                developedBy: "Développé avec ❤️ par SALAH AIT HAMMOU",
+                extracting: "⏳ Extraction en cours...",
+                downloadText: "Télécharger en TXT",
+                downloadJson: "Télécharger en JSON",
+                urlInvalid: "URL invalide ! Veuillez entrer une URL YouTube valide.",
+                direction: "ltr",
+                font: "'Arial', sans-serif"
+            },
+            en: {
+                title: "YouTube Comment & Info Extractor",
+                urlLabel: "Enter YouTube Video URL:",
+                extractButton: "Extract Comments",
+                videoInfoButton: "Get Video Info",
+                includeUsername: "Include Username?",
+                includeTimestamp: "Include Timestamp?",
+                noComments: "No comments found.",
+                noVideoInfo: "No video information found.",
+                developedBy: "Developed with ❤️ by SALAH AIT HAMMOU",
+                extracting: "⏳ Extracting...",
+                downloadText: "Download as TXT",
+                downloadJson: "Download as JSON",
+                urlInvalid: "Invalid URL! Please enter a valid YouTube URL.",
+                direction: "ltr",
+                font: "'Arial', sans-serif"
+            }
+        };
+
+        let currentLanguage = 'fr';
+
+        function changeLanguage(lang) {
+            currentLanguage = lang;
+            updateContent();
+        }
+
+        function updateContent() {
+            const elements = document.querySelectorAll('[data-i18n]');
+            elements.forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                element.textContent = translations[currentLanguage][key];
+            });
+
+            document.getElementById('url').placeholder = translations[currentLanguage]['urlLabel'].replace("Entrez ", "").replace("Enter ", "").replace(":", "");
+            document.body.dir = translations[currentLanguage]['direction'];
+            document.body.style.fontFamily = translations[currentLanguage]['font'];
+        }
+
+        function extractVideoId(url) {
+            const match = url.match(/v=([a-zA-Z0-9_-]+)/);
+            return match ? match[1] : null;
+        }
+
+        async function extractComments() {
+            const url = document.getElementById("url").value;
+            const includeUsername = document.getElementById("includeUsername").checked;
+            const includeTimestamp = document.getElementById("includeTimestamp").checked;
+            const videoId = extractVideoId(url);
+
+            if (!videoId) {
+                alert(translations[currentLanguage]['urlInvalid'] || "URL invalide ! Veuillez entrer une URL YouTube valide.");
+                return;
+            }
+            document.getElementById("progress").innerText = translations[currentLanguage]['extracting'] || "⏳ Extraction en cours...";
+
+            try {
+                const commentsData = await fetchComments(videoId, includeUsername, includeTimestamp);
+                displayComments(commentsData.comments);
+                displayDownloadLinks(commentsData.comments, includeUsername, includeTimestamp, videoId);
+
+            } catch (error) {
+                console.error("Error fetching comments:", error);
+                document.getElementById("comments").innerText = "Une erreur s'est produite lors de l'extraction des commentaires.";
+                document.getElementById("downloadLinks").innerHTML = "";
+            } finally {
+                document.getElementById("progress").innerText = "";
+            }
+        }
+
+        async function fetchComments(videoId, includeUsername, includeTimestamp) {
+            const apiKey = "AIzaSyC6T-kCIWBVeYScw6PbfcC9kW0WLCxcpS0"; // Replace with your actual API key
+            let nextPageToken = '';
+            let allComments = [];
+
+            try {
+                while (true) {
+                    let url = `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&maxResults=100&key=${apiKey}`;
+                    if (nextPageToken) {
+                        url += `&pageToken=${nextPageToken}`;
+                    }
+
+                    const response = await fetch(url);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (!data.items) {
+                        break;
+                    }
+
+                    data.items.forEach(item => {
+                        const snippet = item.snippet.topLevelComment.snippet;
+                        const commentText = snippet.textDisplay;
+                        const authorName = snippet.authorDisplayName;
+                        const publishedAt = snippet.publishedAt;
+
+                        let commentString = commentText;
+
+                        if (includeUsername) {
+                            commentString = `${authorName}: ${commentString}`;
+                        }
+
+                        if (includeTimestamp) {
+                            const date = new Date(publishedAt);
+                            const formattedDate = date.toLocaleString();
+                            commentString = `[${formattedDate}] ${commentString}`;
+                        }
+
+                        allComments.push(commentString);
+                    });
+
+                    if (!data.nextPageToken) {
+                        break;
+                    }
+
+                    nextPageToken = data.nextPageToken;
+                }
+            } catch (error) {
+                console.error("Error fetching comments:", error);
+                throw error; // Re-throw the error for the calling function to handle
+            }
+
+            return { comments: allComments, includeUsername: includeUsername };
+        }
+
+        async function getVideoInfo() {
+            const url = document.getElementById("url").value;
+            const videoId = extractVideoId(url);
+
+            if (!videoId) {
+                alert(translations[currentLanguage]['urlInvalid'] || "URL invalide ! Veuillez entrer une URL YouTube valide.");
+                return;
+            }
+
+            try {
+                const videoData = await fetchVideoInfo(videoId);
+                displayVideoInfo(videoData);
+            } catch (error) {
+                console.error("Error fetching video info:", error);
+                document.getElementById("videoInfo").innerText = "Une erreur s'est produite lors de la récupération des informations sur la vidéo.";
+            }
+        }
+
+        async function fetchVideoInfo(videoId) {
+            const apiKey = "AIzaSyC6T-kCIWBVeYScw6PbfcC9kW0WLCxcpS0"; // Replace with your actual API key
+            const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoId}&key=${apiKey}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.items && data.items.length > 0) {
+                return data.items[0];
+            } else {
+                return null;
+            }
+        }
+
+        function displayComments(comments) {
+            const commentsDiv = document.getElementById("comments");
+            commentsDiv.innerHTML = comments.length ? comments.join('<br><br>') : (translations[currentLanguage]['noComments'] || "Aucun commentaire trouvé.");
+        }
+
+        function displayVideoInfo(videoData) {
+            const videoInfoDiv = document.getElementById("videoInfo");
+            if (videoData) {
+                const snippet = videoData.snippet;
+                const statistics = videoData.statistics;
+
+                const title = snippet.title;
+                const description = snippet.description;
+                const viewCount = statistics.viewCount;
+                const likeCount = statistics.likeCount;
+                const dislikeCount = statistics.dislikeCount || "N/A"; // Dislike count might be hidden
+                const commentCount = statistics.commentCount;
+
+                const videoInfoHTML = `
+                    <b>Titre:</b> ${title}<br><br>
+                    <b>Description:</b> ${description}<br><br>
+                    <b>Nombre de vues:</b> ${viewCount}<br><br>
+                    <b>Nombre de likes:</b> ${likeCount}<br><br>
+                    <b>Nombre de dislikes:</b> ${dislikeCount}<br><br>
+                    <b>Nombre de commentaires:</b> ${commentCount}
+                `;
+
+                videoInfoDiv.innerHTML = videoInfoHTML;
+            } else {
+                videoInfoDiv.innerHTML = translations[currentLanguage]['noVideoInfo'] || "Aucune information sur la vidéo trouvée.";
+            }
+        }
+
+        function displayDownloadLinks(comments, includeUsername, includeTimestamp, videoId) {
+            const downloadLinksDiv = document.getElementById("downloadLinks");
+            downloadLinksDiv.innerHTML = "";
+
+            if (comments.length > 0) {
+                const textContent = comments.join('\r\n\r\n');
+                const jsonContent = JSON.stringify(comments, null, 2);
+
+                const textBlob = new Blob([textContent], { type: 'text/plain' });
+                const jsonBlob = new Blob([jsonContent], { type: 'application/json' });
+
+                const textUrl = URL.createObjectURL(textBlob);
+                const jsonUrl = URL.createObjectURL(jsonBlob);
+
+                const textLink = document.createElement('a');
+                textLink.href = textUrl;
+                textLink.download = `comments_${videoId}${includeUsername ? '_with_names' : ''}${includeTimestamp ? '_with_time' : ''}.txt`;
+                textLink.textContent = translations[currentLanguage]['downloadText'] || 'Télécharger en TXT';
+                textLink.classList.add('btn', 'btn-success');
+                textLink.style.marginLeft = '5px';
+
+                const jsonLink = document.createElement('a');
+                jsonLink.href = jsonUrl;
+                jsonLink.download = `comments_${videoId}${includeUsername ? '_with_names' : ''}${includeTimestamp ? '_with_time' : ''}.json`;
+                jsonLink.textContent = translations[currentLanguage]['downloadJson'] || 'Télécharger en JSON';
+                jsonLink.classList.add('btn', 'btn-info');
+                textLink.style.marginLeft = '5px';
+                downloadLinksDiv.appendChild(textLink);
+                downloadLinksDiv.appendChild(jsonLink);
+
+
+            } else {
+                downloadLinksDiv.innerHTML = "<p data-i18n='noComments'>Aucun commentaire trouvé.</p>";
+            }
+        }
+
+        // Initialize
+        updateContent();
+    </script>
+
+</body>
+
+</html>
